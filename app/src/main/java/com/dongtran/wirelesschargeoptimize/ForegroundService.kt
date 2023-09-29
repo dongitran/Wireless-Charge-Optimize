@@ -9,6 +9,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
+import androidx.annotation.RequiresApi
 import java.util.*
 
 class ForegroundService : Service() {
@@ -25,6 +26,7 @@ class ForegroundService : Service() {
         createNotificationChannel()
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "Service started")
 
@@ -67,6 +69,7 @@ class ForegroundService : Service() {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     private fun createNotification(): Notification {
         val notificationText = "Your Foreground Service is running."
 
