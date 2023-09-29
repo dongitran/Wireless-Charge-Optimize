@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Wireless Charge Optimize</string>
+    <string name="notification_channel_id">ForegroundServiceChannel</string>
+</resources>
