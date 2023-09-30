@@ -5,7 +5,10 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -26,6 +29,10 @@ class ForegroundService : Service() {
     private val TAG = "ForegroundService"
     private val timer = Timer()
     private val handler = Handler(Looper.getMainLooper())
+    private var isCharging = false
+    private var isChargedFull = false
+    private val BATTERY_LEVEL_NEED_CHARGE = 30
+    private val BATTERY_LEVEL_FULL = 85
 
 
     companion object {
@@ -48,6 +55,15 @@ class ForegroundService : Service() {
         if (!isServiceRunning) {
             val notification = createNotification()
 
+            // Check battery
+            val batteryPercentageInit = getBatteryPercentage(applicationContext)
+            if(batteryPercentageInit < (BATTERY_LEVEL_FULL - 10)) {
+                isCharging = true;
+            }
+            else{
+                isChargedFull = true;
+            }
+
             // Bắt đầu dịch vụ Foreground với thông báo
             startForeground(NOTIFICATION_ID, notification)
             isServiceRunning = true
@@ -55,9 +71,26 @@ class ForegroundService : Service() {
             handler.postDelayed(object : Runnable {
                 override fun run() {
                     // Gửi API POST ở đây
-                    Log.d(TAG, "AAA POST request...")
+                    Log.d(TAG, "Sending POST request...")
+                    val batteryPercentageNow = getBatteryPercentage(applicationContext)
+                    print("batteryPercentage: ")
+                    println(batteryPercentageNow)
+
+                    if(isCharging){
+                        if(batteryPercentageNow >= BATTERY_LEVEL_FULL){
+                            isCharging = false
+                            isChargedFull = true
+                        }
+                    }
+                    else if(isChargedFull){
+                        if(batteryPercentageNow <= BATTERY_LEVEL_NEED_CHARGE) {
+                            isCharging = true
+                            isChargedFull = false
+                        }
+                    }
+
                     GlobalScope.launch(Dispatchers.IO) {
-                        sendTelegramMessage(cnt)
+                        sendTelegramMessage(cnt, isCharging, batteryPercentageNow)
                     }
                     cnt++
                     // Lên lịch tiếp theo sau 10 giây
@@ -65,22 +98,6 @@ class ForegroundService : Service() {
                 }
             }, 10000)
         }
-
-        // Lập lịch gửi API POST mỗi 2 phút (120000 milliseconds)
-        //timer.scheduleAtFixedRate(object : TimerTask() {
-        //    override fun run() {
-        //        // Gửi API POST ở đây
-        //        Log.d(TAG, "Sending POST request...")
-        //        GlobalScope.launch(Dispatchers.IO) {
-        //            sendTelegramMessage(cnt)
-        //        }
-        //        cnt = cnt + 1
-        //    }
-        //}, 0, 10000) // 120000 milliseconds = 2 phút
-
-
-
-
         return START_STICKY
     }
 
@@ -124,10 +141,10 @@ class ForegroundService : Service() {
         return notification
     }
 
-    private fun sendTelegramMessage(@Field("cnt") cnt: Number,) {
+    private fun sendTelegramMessage(@Field("cnt") cnt: Number,@Field("charging") charging: Boolean,@Field("batteryPercentageNow") batteryPercentageNow: Number) {
         val token = "" // Thay YOUR_BOT_TOKEN bằng token của bot của bạn
         val chatId = "" // Thay YOUR_CHAT_ID bằng chat ID của người nhận
-        val message = "Hello from Kotlin! " + cnt.toString() // Nội dung tin nhắn của bạn
+        val message = "Charge optimize! " + cnt.toString() + " - " + charging.toString() + " - " + batteryPercentageNow.toString() // Nội dung tin nhắn của bạn
 
         val retrofit = Retrofit.Builder()
             .baseUrl("https://api.telegram.org/bot$token/")
@@ -153,6 +170,17 @@ class ForegroundService : Service() {
             //updateNotification("Failed to send message: ${e.message}")
         }
     }
+}
+
+private fun getBatteryPercentage(context: Context): Int {
+    val batteryStatus: Intent? = IntentFilter(Intent.ACTION_BATTERY_CHANGED).let { ifilter ->
+        context.registerReceiver(null, ifilter)
+    }
+    val level: Int = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+    val scale: Int = batteryStatus?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+
+    val batteryPct = (level.toFloat() / scale.toFloat() * 100).toInt()
+    return batteryPct
 }
 
 interface TelegramAPI {
