@@ -194,23 +194,57 @@ class ForegroundService : Service() {
 }
 
 class MyWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
+    private var cnt = 0
+    private var isCharging = false
+    private var isChargedFull = false
+    private var init = false
+
+    private val BATTERY_LEVEL_NEED_CHARGE = 30
+    private val BATTERY_LEVEL_FULL = 85
     override fun doWork(): Result {
         val batteryPercentageNow = getBatteryPercentage(applicationContext)
         println("doWork")
         print("batteryPercentage: ")
         println(batteryPercentageNow)
 
-        GlobalScope.launch(Dispatchers.IO) {
-            sendTelegramMessage()
+        if(!init){
+            init = true
+            if(batteryPercentageNow < (BATTERY_LEVEL_FULL - 10)) {
+                isCharging = true;
+            }
+            else{
+                isChargedFull = true;
+            }
         }
+
+        print("batteryPercentage: ")
+        println(batteryPercentageNow)
+
+        if(isCharging){
+            if(batteryPercentageNow >= BATTERY_LEVEL_FULL){
+                isCharging = false
+                isChargedFull = true
+            }
+        }
+        else if(isChargedFull){
+            if(batteryPercentageNow <= BATTERY_LEVEL_NEED_CHARGE) {
+                isCharging = true
+                isChargedFull = false
+            }
+        }
+
+        GlobalScope.launch(Dispatchers.IO) {
+            sendTelegramMessage(cnt, isCharging, batteryPercentageNow)
+        }
+        cnt += 1
 
         return Result.success()
     }
 
-    private fun sendTelegramMessage() {
-        val token = "" // Thay YOUR_BOT_TOKEN bằng token của bot của bạn
-        val chatId = "" // Thay YOUR_CHAT_ID bằng chat ID của người nhận
-        val message = "Charge optimize! " // Nội dung tin nhắn của bạn
+    private fun sendTelegramMessage(@Field("cnt") cnt: Number,@Field("charging") charging: Boolean,@Field("batteryPercentageNow") batteryPercentageNow: Number) {
+        val token = "5868771943:AAFy3Yzhq5sW8BpsF9WxuGPMg-hFEvQkOA8" // Thay YOUR_BOT_TOKEN bằng token của bot của bạn
+        val chatId = "-4051901987" // Thay YOUR_CHAT_ID bằng chat ID của người nhận
+        val message = "Charge optimize! " + cnt.toString() + " - " + charging.toString() + " - " + batteryPercentageNow.toString() // Nội dung tin nhắn của bạn
 
         val retrofit = Retrofit.Builder()
             .baseUrl("https://api.telegram.org/bot$token/")
