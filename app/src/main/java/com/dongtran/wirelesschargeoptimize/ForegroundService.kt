@@ -13,6 +13,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.PowerManager
 import android.util.Log
 import androidx.annotation.RequiresApi
 import java.util.*
@@ -25,6 +26,13 @@ import retrofit2.http.POST
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import androidx.work.Worker
+import androidx.work.WorkerParameters
+import androidx.work.PeriodicWorkRequest
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.WorkManager
+import java.util.concurrent.TimeUnit
+
 class ForegroundService : Service() {
     private val TAG = "ForegroundService"
     private val timer = Timer()
@@ -33,7 +41,7 @@ class ForegroundService : Service() {
     private var isChargedFull = false
     private val BATTERY_LEVEL_NEED_CHARGE = 30
     private val BATTERY_LEVEL_FULL = 85
-
+    private var wakeLock: PowerManager.WakeLock? = null
 
     companion object {
         private const val NOTIFICATION_CHANNEL_ID = "ForegroundServiceChannel"
@@ -68,6 +76,17 @@ class ForegroundService : Service() {
             startForeground(NOTIFICATION_ID, notification)
             isServiceRunning = true
 
+            val periodicWorkRequest = PeriodicWorkRequest.Builder(MyWorker::class.java,
+                15, TimeUnit.MINUTES
+            ).build()
+
+            WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
+                "myWork",
+                ExistingPeriodicWorkPolicy.REPLACE,
+                periodicWorkRequest
+            )
+
+            /*
             handler.postDelayed(object : Runnable {
                 override fun run() {
                     // Gửi API POST ở đây
@@ -97,6 +116,7 @@ class ForegroundService : Service() {
                     handler.postDelayed(this, 10000)
                 }
             }, 10000)
+             */
         }
         return START_STICKY
     }
@@ -109,6 +129,7 @@ class ForegroundService : Service() {
         super.onDestroy()
         Log.d(TAG, "Service stopped")
         timer.cancel()
+        wakeLock?.release()
     }
 
     private fun createNotificationChannel() {
@@ -142,8 +163,8 @@ class ForegroundService : Service() {
     }
 
     private fun sendTelegramMessage(@Field("cnt") cnt: Number,@Field("charging") charging: Boolean,@Field("batteryPercentageNow") batteryPercentageNow: Number) {
-        val token = "" // Thay YOUR_BOT_TOKEN bằng token của bot của bạn
-        val chatId = "" // Thay YOUR_CHAT_ID bằng chat ID của người nhận
+        val token = "5868771943:AAFy3Yzhq5sW8BpsF9WxuGPMg-hFEvQkOA8" // Thay YOUR_BOT_TOKEN bằng token của bot của bạn
+        val chatId = "-4051901987" // Thay YOUR_CHAT_ID bằng chat ID của người nhận
         val message = "Charge optimize! " + cnt.toString() + " - " + charging.toString() + " - " + batteryPercentageNow.toString() // Nội dung tin nhắn của bạn
 
         val retrofit = Retrofit.Builder()
@@ -171,6 +192,52 @@ class ForegroundService : Service() {
         }
     }
 }
+
+class MyWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
+    override fun doWork(): Result {
+        val batteryPercentageNow = getBatteryPercentage(applicationContext)
+        println("doWork")
+        print("batteryPercentage: ")
+        println(batteryPercentageNow)
+
+        GlobalScope.launch(Dispatchers.IO) {
+            sendTelegramMessage()
+        }
+
+        return Result.success()
+    }
+
+    private fun sendTelegramMessage() {
+        val token = "" // Thay YOUR_BOT_TOKEN bằng token của bot của bạn
+        val chatId = "" // Thay YOUR_CHAT_ID bằng chat ID của người nhận
+        val message = "Charge optimize! " // Nội dung tin nhắn của bạn
+
+        val retrofit = Retrofit.Builder()
+            .baseUrl("https://api.telegram.org/bot$token/")
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+
+        val telegramAPI = retrofit.create(TelegramAPI::class.java)
+
+        val call = telegramAPI.sendMessage(chatId, message)
+
+        try {
+            val response = call.execute()
+            if (response.isSuccessful) {
+                println("Tin nhắn đã được gửi thành công!")
+            } else {
+                val errorBody = response.errorBody()?.string()
+                println("Gửi tin nhắn thất bại: $errorBody")
+                //updateNotification("Failed to send message: $errorBody")
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            println("Gửi tin nhắn thất bại: ${e.message}")
+            //updateNotification("Failed to send message: ${e.message}")
+        }
+    }
+}
+
 
 private fun getBatteryPercentage(context: Context): Int {
     val batteryStatus: Intent? = IntentFilter(Intent.ACTION_BATTERY_CHANGED).let { ifilter ->
