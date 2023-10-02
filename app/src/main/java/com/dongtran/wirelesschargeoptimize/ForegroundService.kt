@@ -25,6 +25,11 @@ import retrofit2.http.POST
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import org.eclipse.paho.client.mqttv3.MqttClient
+import org.eclipse.paho.client.mqttv3.MqttConnectOptions
+import org.eclipse.paho.client.mqttv3.MqttMessage
+import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
+
 class ForegroundService : Service() {
     private val TAG = "ForegroundService"
     private val timer = Timer()
@@ -33,7 +38,8 @@ class ForegroundService : Service() {
     private var isChargedFull = false
     private val BATTERY_LEVEL_NEED_CHARGE = 30
     private val BATTERY_LEVEL_FULL = 85
-
+    private lateinit var mqttClient: MqttClient
+    val mqttTopic = "wirelesscharge/data"
 
     companion object {
         private const val NOTIFICATION_CHANNEL_ID = "ForegroundServiceChannel"
@@ -43,6 +49,27 @@ class ForegroundService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+
+        // Customize the following values based on your settings
+        val clientId = ""
+        val brokerUri = ""
+
+        mqttClient = MqttClient(brokerUri, clientId, MemoryPersistence())
+
+        val connectOptions = MqttConnectOptions()
+        connectOptions.userName = ""
+        connectOptions.password = "".toCharArray()
+
+        mqttClient.connect(connectOptions)
+
+        // Publish data
+        val topic = "wirelesscharge/data" // Set the topic you want to publish to
+        val payload = "Starting!" // The data you want to publish
+
+        val message = MqttMessage(payload.toByteArray()) // Convert the data to an MqttMessage object
+
+        // Publish the message to the topic
+        mqttClient.publish(topic, message)
     }
 
     private var isServiceRunning = false
@@ -57,33 +84,31 @@ class ForegroundService : Service() {
 
             // Check battery
             val batteryPercentageInit = getBatteryPercentage(applicationContext)
-            if(batteryPercentageInit < (BATTERY_LEVEL_FULL - 10)) {
+            if (batteryPercentageInit < (BATTERY_LEVEL_FULL - 10)) {
                 isCharging = true;
-            }
-            else{
+            } else {
                 isChargedFull = true;
             }
 
-            // Bắt đầu dịch vụ Foreground với thông báo
+            // Start the Foreground service with a notification
             startForeground(NOTIFICATION_ID, notification)
             isServiceRunning = true
 
             handler.postDelayed(object : Runnable {
                 override fun run() {
-                    // Gửi API POST ở đây
+                    // Send POST request here
                     Log.d(TAG, "Sending POST request...")
                     val batteryPercentageNow = getBatteryPercentage(applicationContext)
                     print("batteryPercentage: ")
                     println(batteryPercentageNow)
 
-                    if(isCharging){
-                        if(batteryPercentageNow >= BATTERY_LEVEL_FULL){
+                    if (isCharging) {
+                        if (batteryPercentageNow >= BATTERY_LEVEL_FULL) {
                             isCharging = false
                             isChargedFull = true
                         }
-                    }
-                    else if(isChargedFull){
-                        if(batteryPercentageNow <= BATTERY_LEVEL_NEED_CHARGE) {
+                    } else if (isChargedFull) {
+                        if (batteryPercentageNow <= BATTERY_LEVEL_NEED_CHARGE) {
                             isCharging = true
                             isChargedFull = false
                         }
@@ -92,8 +117,12 @@ class ForegroundService : Service() {
                     GlobalScope.launch(Dispatchers.IO) {
                         sendTelegramMessage(cnt, isCharging, batteryPercentageNow)
                     }
+                    GlobalScope.launch(Dispatchers.IO) {
+                        publishMqttMessage(mqttTopic, cnt, isCharging, batteryPercentageNow)
+                    }
+
                     cnt++
-                    // Lên lịch tiếp theo sau 10 giây
+                    // Schedule the next run after 10 seconds
                     handler.postDelayed(this, 10000)
                 }
             }, 10000)
@@ -109,6 +138,7 @@ class ForegroundService : Service() {
         super.onDestroy()
         Log.d(TAG, "Service stopped")
         timer.cancel()
+        mqttClient.disconnect()
     }
 
     private fun createNotificationChannel() {
@@ -141,10 +171,22 @@ class ForegroundService : Service() {
         return notification
     }
 
-    private fun sendTelegramMessage(@Field("cnt") cnt: Number,@Field("charging") charging: Boolean,@Field("batteryPercentageNow") batteryPercentageNow: Number) {
-        val token = "" // Thay YOUR_BOT_TOKEN bằng token của bot của bạn
-        val chatId = "" // Thay YOUR_CHAT_ID bằng chat ID của người nhận
-        val message = "Charge optimize! " + cnt.toString() + " - " + charging.toString() + " - " + batteryPercentageNow.toString() // Nội dung tin nhắn của bạn
+    private fun publishMqttMessage(topic: String, cnt: Number, charging: Boolean, batteryPercentageNow: Number) {
+        val message = "Charge optimize - " + cnt.toString() + " - " + charging.toString() + " - " + batteryPercentageNow.toString()
+        try {
+            val message = MqttMessage(message.toByteArray())
+            mqttClient.publish(topic, message)
+            println("Message published to MQTT topic: $topic")
+        } catch (e: Exception) {
+            e.printStackTrace()
+            println("Failed to publish MQTT message: ${e.message}")
+        }
+    }
+
+    private fun sendTelegramMessage(cnt: Number, charging: Boolean, batteryPercentageNow: Number) {
+        val token = "YOUR_BOT_TOKEN" // Replace YOUR_BOT_TOKEN with your bot's token
+        val chatId = "YOUR_CHAT_ID" // Replace YOUR_CHAT_ID with the recipient's chat ID
+        val message = "Charge optimize - " + cnt.toString() + " - " + charging.toString() + " - " + batteryPercentageNow.toString() // Your message content
 
         val retrofit = Retrofit.Builder()
             .baseUrl("https://api.telegram.org/bot$token/")
@@ -158,15 +200,15 @@ class ForegroundService : Service() {
         try {
             val response = call.execute()
             if (response.isSuccessful) {
-                println("Tin nhắn đã được gửi thành công!")
+                println("Message sent successfully!")
             } else {
                 val errorBody = response.errorBody()?.string()
-                println("Gửi tin nhắn thất bại: $errorBody")
+                println("Failed to send message: $errorBody")
                 //updateNotification("Failed to send message: $errorBody")
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            println("Gửi tin nhắn thất bại: ${e.message}")
+            println("Failed to send message: ${e.message}")
             //updateNotification("Failed to send message: ${e.message}")
         }
     }
