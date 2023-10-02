@@ -49,14 +49,14 @@ class ForegroundService : Service() {
         createNotificationChannel()
 
         // Customize the following values based on your settings
-        val clientId = ""
-        val brokerUri = ""
+        val clientId = "phone_device"
+        val brokerUri = "ssl://o126710c.ala.us-east-1.emqxsl.com:8883"
 
         mqttClient = MqttClient(brokerUri, clientId, MemoryPersistence())
 
         val connectOptions = MqttConnectOptions()
-        connectOptions.userName = ""
-        connectOptions.password = "".toCharArray()
+        connectOptions.userName = "dongtran"
+        connectOptions.password = "dongtran".toCharArray()
 
         mqttClient.connect(connectOptions)
 
@@ -116,9 +116,9 @@ class ForegroundService : Service() {
 
                     cnt++
                     // Schedule the next run after 10 seconds
-                    handler.postDelayed(this, 10000)
+                    handler.postDelayed(this, 30000)
                 }
-            }, 10000)
+            }, 1)
         }
         return START_STICKY
     }
