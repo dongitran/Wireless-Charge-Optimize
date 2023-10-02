@@ -1,10 +1,6 @@
 package com.dongtran.wirelesschargeoptimize
 
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
-import android.app.Service
+import android.app.*
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -15,13 +11,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.util.Log
 import androidx.annotation.RequiresApi
-import java.util.*
-import retrofit2.Call
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
-import retrofit2.http.Field
-import retrofit2.http.FormUrlEncoded
-import retrofit2.http.POST
+import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -29,17 +19,25 @@ import org.eclipse.paho.client.mqttv3.MqttClient
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions
 import org.eclipse.paho.client.mqttv3.MqttMessage
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
+import retrofit2.Call
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.http.Field
+import retrofit2.http.FormUrlEncoded
+import retrofit2.http.POST
+import java.util.*
 
 class ForegroundService : Service() {
     private val TAG = "ForegroundService"
-    private val timer = Timer()
     private val handler = Handler(Looper.getMainLooper())
     private var isCharging = false
     private var isChargedFull = false
     private val BATTERY_LEVEL_NEED_CHARGE = 30
     private val BATTERY_LEVEL_FULL = 85
     private lateinit var mqttClient: MqttClient
-    val mqttTopic = "wirelesscharge/data"
+    private val mqttTopic = "wirelesscharge/data"
+    private var isServiceRunning = false
+    private var cnt = 0
 
     companion object {
         private const val NOTIFICATION_CHANNEL_ID = "ForegroundServiceChannel"
@@ -72,9 +70,6 @@ class ForegroundService : Service() {
         mqttClient.publish(topic, message)
     }
 
-    private var isServiceRunning = false
-    private var cnt = 0
-
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "Service started")
@@ -85,9 +80,9 @@ class ForegroundService : Service() {
             // Check battery
             val batteryPercentageInit = getBatteryPercentage(applicationContext)
             if (batteryPercentageInit < (BATTERY_LEVEL_FULL - 10)) {
-                isCharging = true;
+                isCharging = true
             } else {
-                isChargedFull = true;
+                isChargedFull = true
             }
 
             // Start the Foreground service with a notification
@@ -116,8 +111,6 @@ class ForegroundService : Service() {
 
                     GlobalScope.launch(Dispatchers.IO) {
                         sendTelegramMessage(cnt, isCharging, batteryPercentageNow)
-                    }
-                    GlobalScope.launch(Dispatchers.IO) {
                         publishMqttMessage(mqttTopic, cnt, isCharging, batteryPercentageNow)
                     }
 
@@ -137,7 +130,6 @@ class ForegroundService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         Log.d(TAG, "Service stopped")
-        timer.cancel()
         mqttClient.disconnect()
     }
 
@@ -161,18 +153,16 @@ class ForegroundService : Service() {
         val intent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
 
-        val notification = Notification.Builder(this, NOTIFICATION_CHANNEL_ID)
+        return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
             .setContentTitle("Foreground Service")
             .setContentText(notificationText)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(pendingIntent)
             .build()
-
-        return notification
     }
 
-    private fun publishMqttMessage(topic: String, cnt: Number, charging: Boolean, batteryPercentageNow: Number) {
-        val message = "Charge optimize - " + cnt.toString() + " - " + charging.toString() + " - " + batteryPercentageNow.toString()
+    private fun publishMqttMessage(topic: String, cnt: Int, charging: Boolean, batteryPercentageNow: Int) {
+        val message = "Charge optimize - $cnt - $charging - $batteryPercentageNow"
         try {
             val message = MqttMessage(message.toByteArray())
             mqttClient.publish(topic, message)
@@ -183,10 +173,10 @@ class ForegroundService : Service() {
         }
     }
 
-    private fun sendTelegramMessage(cnt: Number, charging: Boolean, batteryPercentageNow: Number) {
-        val token = "YOUR_BOT_TOKEN" // Replace YOUR_BOT_TOKEN with your bot's token
-        val chatId = "YOUR_CHAT_ID" // Replace YOUR_CHAT_ID with the recipient's chat ID
-        val message = "Charge optimize - " + cnt.toString() + " - " + charging.toString() + " - " + batteryPercentageNow.toString() // Your message content
+    private fun sendTelegramMessage(cnt: Int, charging: Boolean, batteryPercentageNow: Int) {
+        val token = "5868771943:AAFy3Yzhq5sW8BpsF9WxuGPMg-hFEvQkOA8" // Replace YOUR_BOT_TOKEN with your bot's token
+        val chatId = "-4051901987" // Replace YOUR_CHAT_ID with the recipient's chat ID
+        val message = "Charge optimize - $cnt - $charging - $batteryPercentageNow" // Your message content
 
         val retrofit = Retrofit.Builder()
             .baseUrl("https://api.telegram.org/bot$token/")
@@ -204,25 +194,22 @@ class ForegroundService : Service() {
             } else {
                 val errorBody = response.errorBody()?.string()
                 println("Failed to send message: $errorBody")
-                //updateNotification("Failed to send message: $errorBody")
             }
         } catch (e: Exception) {
             e.printStackTrace()
             println("Failed to send message: ${e.message}")
-            //updateNotification("Failed to send message: ${e.message}")
         }
     }
-}
 
-private fun getBatteryPercentage(context: Context): Int {
-    val batteryStatus: Intent? = IntentFilter(Intent.ACTION_BATTERY_CHANGED).let { ifilter ->
-        context.registerReceiver(null, ifilter)
+    private fun getBatteryPercentage(context: Context): Int {
+        val batteryStatus: Intent? = IntentFilter(Intent.ACTION_BATTERY_CHANGED).let { ifilter ->
+            context.registerReceiver(null, ifilter)
+        }
+        val level: Int = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+        val scale: Int = batteryStatus?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+
+        return (level.toFloat() / scale.toFloat() * 100).toInt()
     }
-    val level: Int = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
-    val scale: Int = batteryStatus?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
-
-    val batteryPct = (level.toFloat() / scale.toFloat() * 100).toInt()
-    return batteryPct
 }
 
 interface TelegramAPI {
