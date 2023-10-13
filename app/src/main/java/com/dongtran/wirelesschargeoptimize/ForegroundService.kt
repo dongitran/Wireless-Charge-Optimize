@@ -15,6 +15,8 @@ import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken
+import org.eclipse.paho.client.mqttv3.MqttCallbackExtended
 import org.eclipse.paho.client.mqttv3.MqttClient
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions
 import org.eclipse.paho.client.mqttv3.MqttMessage
@@ -47,27 +49,6 @@ class ForegroundService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-
-        // Customize the following values based on your settings
-        val clientId = "phone_device"
-        val brokerUri = "ssl://o126710c.ala.us-east-1.emqxsl.com:8883"
-
-        mqttClient = MqttClient(brokerUri, clientId, MemoryPersistence())
-
-        val connectOptions = MqttConnectOptions()
-        connectOptions.userName = "dongtran"
-        connectOptions.password = "dongtran".toCharArray()
-
-        mqttClient.connect(connectOptions)
-
-        // Publish data
-        val topic = "wirelesscharge/data" // Set the topic you want to publish to
-        val payload = "Starting!" // The data you want to publish
-
-        val message = MqttMessage(payload.toByteArray()) // Convert the data to an MqttMessage object
-
-        // Publish the message to the topic
-        mqttClient.publish(topic, message)
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -116,7 +97,7 @@ class ForegroundService : Service() {
 
                     cnt++
                     // Schedule the next run after 10 seconds
-                    handler.postDelayed(this, 30000)
+                    handler.postDelayed(this, 60000)
                 }
             }, 1)
         }
@@ -164,9 +145,25 @@ class ForegroundService : Service() {
     private fun publishMqttMessage(topic: String, cnt: Int, charging: Boolean, batteryPercentageNow: Int) {
         val message = "Charge optimize - $cnt - $charging - $batteryPercentageNow"
         try {
+            // Customize the following values based on your settings
+            val clientId = "phone_device"
+            val brokerUri = "ssl://o126710c.ala.us-east-1.emqxsl.com:8883"
+
+            mqttClient = MqttClient(brokerUri, clientId, MemoryPersistence())
+
+            val connectOptions = MqttConnectOptions()
+            connectOptions.userName = "dongtran"
+            connectOptions.password = "dongtran".toCharArray()
+
+            mqttClient.connect(connectOptions)
+
+            // Publish data
+            val topic = "wirelesscharge/data" // Set the topic you want to publish to
+
             val message = MqttMessage(message.toByteArray())
             mqttClient.publish(topic, message)
             println("Message published to MQTT topic: $topic")
+            mqttClient.disconnect()
         } catch (e: Exception) {
             e.printStackTrace()
             println("Failed to publish MQTT message: ${e.message}")
