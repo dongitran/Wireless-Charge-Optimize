@@ -24,7 +24,8 @@ class MainActivity : ComponentActivity() {
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == Intent.ACTION_BATTERY_CHANGED) {
-                val temperature = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0)
+                val temperatureInt = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0)
+                val temperature = String.format("%.1f", temperatureInt / 10.0)
                 val chargingStatus = when (intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)) {
                     BatteryManager.BATTERY_STATUS_CHARGING -> "Charging"
                     BatteryManager.BATTERY_STATUS_DISCHARGING -> "Discharging"
@@ -51,7 +52,7 @@ class MainActivity : ComponentActivity() {
     }
 
     // Sử dụng MutableState để lưu trạng thái nhiệt độ pin và các thông tin khác
-    private var batteryTemperature by mutableStateOf(0)
+    private var batteryTemperature by mutableStateOf("0")
     private var batteryStatus by mutableStateOf("Không xác định")
     private var chargingSourceText by mutableStateOf("Không xác định nguồn")
     private var batteryLevelText by mutableStateOf("0%")
@@ -95,7 +96,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun ChargingOptimizeScreen(
-    temperature: Int,
+    temperature: String,
     chargingStatus: String,
     chargingSource: String,
     batteryLevel: String,
@@ -226,7 +227,7 @@ fun ChargingOptimizeScreen(
 fun ChargingOptimizeScreenPreview() {
     WirelessChargeOptimizeTheme {
         ChargingOptimizeScreen(
-            temperature = 25,
+            temperature = "32",
             chargingStatus = "Đang sạc",
             chargingSource = "Sạc từ dây",
             batteryLevel = "80%",
