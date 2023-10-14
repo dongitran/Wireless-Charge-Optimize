@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.dongtran.wirelesschargeoptimize.ui.theme.WirelessChargeOptimizeTheme
+import android.os.BatteryManager
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -34,6 +35,15 @@ class MainActivity : ComponentActivity() {
         // Khởi động dịch vụ ở đây
         val serviceIntent = Intent(this, ForegroundService::class.java)
         startService(serviceIntent)
+
+        // Đọc nhiệt độ pin
+        val batteryManager = getSystemService(BATTERY_SERVICE) as BatteryManager
+        val pluggedUsbCharger = batteryManager.getIntProperty(BatteryManager.BATTERY_PLUGGED_USB)
+        val pluggedWirelessCharger = batteryManager.getIntProperty(BatteryManager.BATTERY_PLUGGED_WIRELESS)
+
+        println("batteryTemperature");
+        println(pluggedUsbCharger);
+        println(pluggedWirelessCharger);
     }
 }
 
