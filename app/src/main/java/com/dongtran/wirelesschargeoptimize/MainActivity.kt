@@ -160,15 +160,8 @@ fun ChargingOptimizeScreen(
         AndroidView(
             factory = { lottieView },
             modifier = Modifier
-                .height(380.dp)
+                .height(400.dp)
         )
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 0.dp)
-        ) {
-            Text( "Battery info",style = TextStyle(fontWeight = FontWeight.Bold))
-        }
         Spacer(modifier = Modifier.height(8.dp))
         Row(
             modifier = Modifier
