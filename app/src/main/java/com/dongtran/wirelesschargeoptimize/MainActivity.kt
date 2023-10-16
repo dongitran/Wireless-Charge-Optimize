@@ -160,7 +160,7 @@ fun ChargingOptimizeScreen(
         AndroidView(
             factory = { lottieView },
             modifier = Modifier
-                .fillMaxWidth()
+                .height(380.dp)
         )
         Row(
             modifier = Modifier
@@ -277,6 +277,19 @@ fun ChargingOptimizeScreen(
                     )
                 }
             }
+        }
+        Spacer(modifier = Modifier.height(32.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+
+        ){
+            Text(
+                text = "App is running. You can close the app.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.Gray
+            )
         }
     }
 }

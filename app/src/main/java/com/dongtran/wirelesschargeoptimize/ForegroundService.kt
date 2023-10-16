@@ -34,7 +34,7 @@ class ForegroundService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private var isCharging = false
     private var isChargedFull = false
-    private val BATTERY_LEVEL_NEED_CHARGE = 30
+    private val BATTERY_LEVEL_NEED_CHARGE = 25
     private val BATTERY_LEVEL_FULL = 85
     private lateinit var mqttClient: MqttClient
     private val mqttTopic = "wirelesscharge/data"
@@ -143,7 +143,9 @@ class ForegroundService : Service() {
     }
 
     private fun publishMqttMessage(topic: String, cnt: Int, charging: Boolean, batteryPercentageNow: Int) {
-        val message = "Charge optimize - $cnt - $charging - $batteryPercentageNow"
+        var isCharging = '0'
+        if(charging) isCharging = '1';
+        val message = "$isCharging"
         try {
             // Customize the following values based on your settings
             val clientId = "phone_device"
