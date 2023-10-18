@@ -46,7 +46,6 @@ class ForegroundService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        createNotificationChannel()
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -54,48 +53,52 @@ class ForegroundService : Service() {
         Log.d(TAG, "Service started")
 
         if (!isServiceRunning) {
-            val notification = createNotification()
 
             // Check battery
             val batteryPercentageInit = getBatteryPercentage(applicationContext)
-            if (batteryPercentageInit < (BATTERY_LEVEL_FULL - 2)) {
+            if (batteryPercentageInit < (BATTERY_LEVEL_FULL - 1)) {
                 isCharging = true
             } else {
                 isChargedFull = true
             }
 
             // Start the Foreground service with a notification
-            startForeground(NOTIFICATION_ID, notification)
             isServiceRunning = true
 
             handler.postDelayed(object : Runnable {
                 override fun run() {
-                    // Send POST request here
-                    Log.d(TAG, "Sending POST request...")
-                    val batteryPercentageNow = getBatteryPercentage(applicationContext)
-                    print("batteryPercentage: ")
-                    println(batteryPercentageNow)
+                    try {
+                        // Send POST request here
+                        Log.d(TAG, "Sending POST request...")
+                        val batteryPercentageNow = getBatteryPercentage(applicationContext)
+                        print("batteryPercentage: ")
+                        println(batteryPercentageNow)
 
-                    if (isCharging) {
-                        if (batteryPercentageNow >= BATTERY_LEVEL_FULL) {
-                            isCharging = false
-                            isChargedFull = true
+                        if (isCharging) {
+                            if (batteryPercentageNow >= BATTERY_LEVEL_FULL) {
+                                isCharging = false
+                                isChargedFull = true
+                            }
+                        } else if (isChargedFull) {
+                            if (batteryPercentageNow <= BATTERY_LEVEL_NEED_CHARGE) {
+                                isCharging = true
+                                isChargedFull = false
+                            }
                         }
-                    } else if (isChargedFull) {
-                        if (batteryPercentageNow <= BATTERY_LEVEL_NEED_CHARGE) {
-                            isCharging = true
-                            isChargedFull = false
+
+                        GlobalScope.launch(Dispatchers.IO) {
+                            //sendTelegramMessage(cnt, isCharging, batteryPercentageNow)
+                            publishMqttMessage(mqttTopic, cnt, isCharging, batteryPercentageNow)
                         }
-                    }
 
-                    GlobalScope.launch(Dispatchers.IO) {
-                        sendTelegramMessage(cnt, isCharging, batteryPercentageNow)
-                        publishMqttMessage(mqttTopic, cnt, isCharging, batteryPercentageNow)
+                        cnt++
                     }
-
-                    cnt++
+                    catch(e: Exception) {
+                        e.printStackTrace()
+                        println("Failed to publish MQTT message: ${e.message}")
+                    }
                     // Schedule the next run after 10 seconds
-                    handler.postDelayed(this, 60000)
+                    handler.postDelayed(this, 6000)
                 }
             }, 1)
         }
@@ -110,34 +113,6 @@ class ForegroundService : Service() {
         super.onDestroy()
         Log.d(TAG, "Service stopped")
         mqttClient.disconnect()
-    }
-
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val notificationChannel = NotificationChannel(
-                NOTIFICATION_CHANNEL_ID,
-                "Foreground Service Channel",
-                NotificationManager.IMPORTANCE_DEFAULT
-            )
-
-            val notificationManager = getSystemService(NotificationManager::class.java)
-            notificationManager.createNotificationChannel(notificationChannel)
-        }
-    }
-
-    @RequiresApi(Build.VERSION_CODES.O)
-    private fun createNotification(): Notification {
-        val notificationText = "Your Foreground Service is running."
-
-        val intent = Intent(this, MainActivity::class.java)
-        val pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
-
-        return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-            .setContentTitle("Foreground Service")
-            .setContentText(notificationText)
-            .setSmallIcon(R.drawable.ic_notification)
-            .setContentIntent(pendingIntent)
-            .build()
     }
 
     private fun publishMqttMessage(topic: String, cnt: Int, charging: Boolean, batteryPercentageNow: Int) {
@@ -159,9 +134,14 @@ class ForegroundService : Service() {
 
             // Publish data
             val topic = "wirelesscharge/data" // Set the topic you want to publish to
-
             val message = MqttMessage(message.toByteArray())
             mqttClient.publish(topic, message)
+
+            val messageDebug = "Charge optimize - $cnt - $charging - $batteryPercentageNow"
+            val messageDebugObj = MqttMessage(messageDebug.toByteArray())
+            val topicDebug = "wirelesscharge/data_debug"
+            mqttClient.publish(topicDebug, messageDebugObj)
+
             println("Message published to MQTT topic: $topic")
             mqttClient.disconnect()
         } catch (e: Exception) {
