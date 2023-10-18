@@ -14,8 +14,12 @@ Say goodbye to overcharging and overheating issues, and say hello to enhanced ba
 - [ ] Publish the application on the Google Play Store for users to download and use.
 
 ## Demo
-
-<img src="./images/demo.jpg" alt="Demo" width="400" >
+Application\
+<img src="./images/demo.jpg" alt="Demo" width="400" >\
+Device\
+<img src="./images/device.jpg" alt="Demo" width="800" >\
+Connect to xiaomi wireless charger\
+<img src="./images/connect-charger.jpg" alt="Demo" width="800" >
 
 ## License:
 
