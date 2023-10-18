@@ -46,6 +46,7 @@ class ForegroundService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        //createNotificationChannel()
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -53,6 +54,7 @@ class ForegroundService : Service() {
         Log.d(TAG, "Service started")
 
         if (!isServiceRunning) {
+            val notification = createNotification()
 
             // Check battery
             val batteryPercentageInit = getBatteryPercentage(applicationContext)
@@ -63,6 +65,7 @@ class ForegroundService : Service() {
             }
 
             // Start the Foreground service with a notification
+            startForeground(NOTIFICATION_ID, notification)
             isServiceRunning = true
 
             handler.postDelayed(object : Runnable {
@@ -112,7 +115,35 @@ class ForegroundService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         Log.d(TAG, "Service stopped")
-        mqttClient.disconnect()
+    }
+
+    private fun createNotificationChannel() {
+        Log.d(TAG, "createNotificationChannel")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val notificationChannel = NotificationChannel(
+                NOTIFICATION_CHANNEL_ID,
+                "Foreground Service Channel",
+                NotificationManager.IMPORTANCE_DEFAULT
+            )
+
+            val notificationManager = getSystemService(NotificationManager::class.java)
+            notificationManager.createNotificationChannel(notificationChannel)
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun createNotification(): Notification {
+        val notificationText = "Your Foreground Service is running."
+
+        val intent = Intent(this, MainActivity::class.java)
+        val pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
+
+        return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+            .setContentTitle("Foreground Service")
+            .setContentText(notificationText)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentIntent(pendingIntent)
+            .build()
     }
 
     private fun publishMqttMessage(topic: String, cnt: Int, charging: Boolean, batteryPercentageNow: Int) {
