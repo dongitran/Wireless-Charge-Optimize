@@ -15,8 +15,6 @@ import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
-import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken
-import org.eclipse.paho.client.mqttv3.MqttCallbackExtended
 import org.eclipse.paho.client.mqttv3.MqttClient
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions
 import org.eclipse.paho.client.mqttv3.MqttMessage
@@ -60,7 +58,7 @@ class ForegroundService : Service() {
 
             // Check battery
             val batteryPercentageInit = getBatteryPercentage(applicationContext)
-            if (batteryPercentageInit < (BATTERY_LEVEL_FULL - 10)) {
+            if (batteryPercentageInit < (BATTERY_LEVEL_FULL - 2)) {
                 isCharging = true
             } else {
                 isChargedFull = true
@@ -173,20 +171,20 @@ class ForegroundService : Service() {
     }
 
     private fun sendTelegramMessage(cnt: Int, charging: Boolean, batteryPercentageNow: Int) {
-        val token = "5868771943:AAFy3Yzhq5sW8BpsF9WxuGPMg-hFEvQkOA8" // Replace YOUR_BOT_TOKEN with your bot's token
-        val chatId = "-4051901987" // Replace YOUR_CHAT_ID with the recipient's chat ID
-        val message = "Charge optimize - $cnt - $charging - $batteryPercentageNow" // Your message content
-
-        val retrofit = Retrofit.Builder()
-            .baseUrl("https://api.telegram.org/bot$token/")
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-
-        val telegramAPI = retrofit.create(TelegramAPI::class.java)
-
-        val call = telegramAPI.sendMessage(chatId, message)
-
         try {
+            val token = "5868771943:AAFy3Yzhq5sW8BpsF9WxuGPMg-hFEvQkOA8" // Replace YOUR_BOT_TOKEN with your bot's token
+            val chatId = "-4051901987" // Replace YOUR_CHAT_ID with the recipient's chat ID
+            val message = "Charge optimize - $cnt - $charging - $batteryPercentageNow" // Your message content
+
+            val retrofit = Retrofit.Builder()
+                .baseUrl("https://api.telegram.org/bot$token/")
+                .addConverterFactory(GsonConverterFactory.create())
+                .build()
+
+            val telegramAPI = retrofit.create(TelegramAPI::class.java)
+
+            val call = telegramAPI.sendMessage(chatId, message)
+
             val response = call.execute()
             if (response.isSuccessful) {
                 println("Message sent successfully!")
@@ -201,13 +199,20 @@ class ForegroundService : Service() {
     }
 
     private fun getBatteryPercentage(context: Context): Int {
-        val batteryStatus: Intent? = IntentFilter(Intent.ACTION_BATTERY_CHANGED).let { ifilter ->
-            context.registerReceiver(null, ifilter)
-        }
-        val level: Int = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
-        val scale: Int = batteryStatus?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+        try{
+            val batteryStatus: Intent? = IntentFilter(Intent.ACTION_BATTERY_CHANGED).let { ifilter ->
+                context.registerReceiver(null, ifilter)
+            }
+            val level: Int = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+            val scale: Int = batteryStatus?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
 
-        return (level.toFloat() / scale.toFloat() * 100).toInt()
+            return (level.toFloat() / scale.toFloat() * 100).toInt()
+        }
+        catch(e: Exception){
+            e.printStackTrace()
+            println("Failed to get battery percentage: ${e.message}")
+            return 0;
+        }
     }
 }
 
