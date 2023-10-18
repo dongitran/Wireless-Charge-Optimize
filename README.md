@@ -1,6 +1,6 @@
-# fpass
+# wireless-charge-optimize
 
-Welcome to fpass, our Battery Monitoring Application!
+Welcome to wireless-charge-optimize, our Battery Monitoring Application!
 
 This innovative tool is designed to revolutionize your wireless charging experience.
 
@@ -8,5 +8,6 @@ It continuously monitors your phone's battery level and, when necessary, communi
 Say goodbye to overcharging and overheating issues, and say hello to enhanced battery health and device longevity
 
 
-Demo:
-![alt Demo](./images/demo.jpg)
+## Demo
+
+<img src="./images/demo.jpg" alt="Demo" width="400" >
