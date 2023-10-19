@@ -6,6 +6,9 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
 import android.os.Bundle
+import android.app.AlarmManager
+import android.app.PendingIntent
+import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -101,6 +104,15 @@ class MainActivity : ComponentActivity() {
         // Khởi động dịch vụ ở đây
         val serviceIntent = Intent(this, ForegroundService::class.java)
         startService(serviceIntent)
+
+        // Sử dụng AlarmManager để khởi chạy foreground service sau 5 giây
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(this, MyForegroundService::class.java)
+        val pendingIntent = PendingIntent.getService(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
+
+        val delay = 10000L
+        alarmManager.setExact(AlarmManager.RTC, System.currentTimeMillis() + delay, pendingIntent)
+
 
         // Đăng ký BroadcastReceiver để lắng nghe thông báo nhiệt độ pin và các thông tin khác
         val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)

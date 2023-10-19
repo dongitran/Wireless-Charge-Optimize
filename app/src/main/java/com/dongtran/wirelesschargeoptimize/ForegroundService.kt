@@ -64,7 +64,7 @@ class ForegroundService : Service() {
 
                 // Check battery
                 val batteryPercentageInit = getBatteryPercentage(applicationContext)
-                if (batteryPercentageInit < (BATTERY_LEVEL_FULL - 10)) {
+                if (batteryPercentageInit < (BATTERY_LEVEL_FULL - 1)) {
                     isCharging = true
                 } else {
                     isChargedFull = true
@@ -107,7 +107,7 @@ class ForegroundService : Service() {
                             println("Failed to publish MQTT message: ${e.message}")
                         }
                         // Schedule the next run after 10 seconds
-                        handler.postDelayed(this, 6000)
+                        handler.postDelayed(this, 60000)
                     }
                 }, 1)
 
