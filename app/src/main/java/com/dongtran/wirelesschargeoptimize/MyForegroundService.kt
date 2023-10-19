@@ -17,6 +17,7 @@ import retrofit2.Call
 import retrofit2.http.Field
 import retrofit2.http.FormUrlEncoded
 import retrofit2.http.POST
+import android.os.PowerManager
 
 class MyForegroundService : Service() {
 
@@ -29,6 +30,8 @@ class MyForegroundService : Service() {
     private val BATTERY_LEVEL_NEED_CHARGE = 25
     private val BATTERY_LEVEL_FULL = 85
 
+    private var wakeLock: PowerManager.WakeLock? = null
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (!isServiceRunning) {
             val batteryPercentageInit = getBatteryPercentage(applicationContext)
@@ -39,6 +42,11 @@ class MyForegroundService : Service() {
             }
 
             isServiceRunning = true
+
+            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+            wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MyForegroundService:WakeLock")
+            wakeLock?.acquire()
+
             startWork()
         }
 
@@ -83,6 +91,7 @@ class MyForegroundService : Service() {
 
     override fun onDestroy() {
         isServiceRunning = false
+        wakeLock?.release()
         super.onDestroy()
     }
 

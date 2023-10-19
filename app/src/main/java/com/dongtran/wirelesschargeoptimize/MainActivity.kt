@@ -105,13 +105,16 @@ class MainActivity : ComponentActivity() {
         val serviceIntent = Intent(this, ForegroundService::class.java)
         startService(serviceIntent)
 
-        // Sử dụng AlarmManager để khởi chạy foreground service sau 5 giây
-        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(this, MyForegroundService::class.java)
-        val pendingIntent = PendingIntent.getService(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
+        val serviceIntentx = Intent(this, MyForegroundService::class.java)
+        startService(serviceIntentx)
 
-        val delay = 10000L
-        alarmManager.setExact(AlarmManager.RTC, System.currentTimeMillis() + delay, pendingIntent)
+        //// Sử dụng AlarmManager để khởi chạy foreground service sau 5 giây
+        //val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        //val intent = Intent(this, MyForegroundService::class.java)
+        //val pendingIntent = PendingIntent.getService(this, 0, intent, PendingIntent.FLAG_MUTABLE)
+//
+        //val delay = 10000L
+        //alarmManager.setExact(AlarmManager.RTC, System.currentTimeMillis() + delay, pendingIntent)
 
 
         // Đăng ký BroadcastReceiver để lắng nghe thông báo nhiệt độ pin và các thông tin khác
