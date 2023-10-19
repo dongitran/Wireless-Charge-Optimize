@@ -9,6 +9,10 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.PowerManager
+import android.content.BroadcastReceiver
+import android.app.AlarmManager
+import android.app.PendingIntent
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
@@ -38,6 +42,7 @@ class ForegroundService : Service() {
     private val mqttTopic = "wirelesscharge/data"
     private var isServiceRunning = false
     private var cnt = 0
+    private val ALARM_INTERVAL = 6000
 
     companion object {
         private const val NOTIFICATION_CHANNEL_ID = "ForegroundServiceChannel"
@@ -46,64 +51,72 @@ class ForegroundService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        //createNotificationChannel()
+        createNotificationChannel()
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "Service started")
 
-        if (!isServiceRunning) {
-            val notification = createNotification()
+        try{
+            if (!isServiceRunning) {
+                val notification = createNotification()
 
-            // Check battery
-            val batteryPercentageInit = getBatteryPercentage(applicationContext)
-            if (batteryPercentageInit < (BATTERY_LEVEL_FULL - 1)) {
-                isCharging = true
-            } else {
-                isChargedFull = true
-            }
-
-            // Start the Foreground service with a notification
-            startForeground(NOTIFICATION_ID, notification)
-            isServiceRunning = true
-
-            handler.postDelayed(object : Runnable {
-                override fun run() {
-                    try {
-                        // Send POST request here
-                        Log.d(TAG, "Sending POST request...")
-                        val batteryPercentageNow = getBatteryPercentage(applicationContext)
-                        print("batteryPercentage: ")
-                        println(batteryPercentageNow)
-
-                        if (isCharging) {
-                            if (batteryPercentageNow >= BATTERY_LEVEL_FULL) {
-                                isCharging = false
-                                isChargedFull = true
-                            }
-                        } else if (isChargedFull) {
-                            if (batteryPercentageNow <= BATTERY_LEVEL_NEED_CHARGE) {
-                                isCharging = true
-                                isChargedFull = false
-                            }
-                        }
-
-                        GlobalScope.launch(Dispatchers.IO) {
-                            //sendTelegramMessage(cnt, isCharging, batteryPercentageNow)
-                            publishMqttMessage(mqttTopic, cnt, isCharging, batteryPercentageNow)
-                        }
-
-                        cnt++
-                    }
-                    catch(e: Exception) {
-                        e.printStackTrace()
-                        println("Failed to publish MQTT message: ${e.message}")
-                    }
-                    // Schedule the next run after 10 seconds
-                    handler.postDelayed(this, 6000)
+                // Check battery
+                val batteryPercentageInit = getBatteryPercentage(applicationContext)
+                if (batteryPercentageInit < (BATTERY_LEVEL_FULL - 10)) {
+                    isCharging = true
+                } else {
+                    isChargedFull = true
                 }
-            }, 1)
+
+                // Start the Foreground service with a notification
+                startForeground(NOTIFICATION_ID, notification)
+                isServiceRunning = true
+
+                handler.postDelayed(object : Runnable {
+                    override fun run() {
+                        try {
+                            // Send POST request here
+                            Log.d(TAG, "Sending POST request...")
+                            val batteryPercentageNow = getBatteryPercentage(applicationContext)
+                            print("batteryPercentage: ")
+                            println(batteryPercentageNow)
+
+                            if (isCharging) {
+                                if (batteryPercentageNow >= BATTERY_LEVEL_FULL) {
+                                    isCharging = false
+                                    isChargedFull = true
+                                }
+                            } else if (isChargedFull) {
+                                if (batteryPercentageNow <= BATTERY_LEVEL_NEED_CHARGE) {
+                                    isCharging = true
+                                    isChargedFull = false
+                                }
+                            }
+
+                            GlobalScope.launch(Dispatchers.IO) {
+                                sendTelegramMessage(cnt, isCharging, batteryPercentageNow)
+                                publishMqttMessage(mqttTopic, cnt, isCharging, batteryPercentageNow)
+                            }
+
+                            cnt++
+                        }
+                        catch(e: Exception) {
+                            e.printStackTrace()
+                            println("Failed to publish MQTT message: ${e.message}")
+                        }
+                        // Schedule the next run after 10 seconds
+                        handler.postDelayed(this, 6000)
+                    }
+                }, 1)
+
+
+            }
+        }
+        catch(e:Exception){
+            e.printStackTrace()
+            println("Failed: ${e.message}")
         }
         return START_STICKY
     }
@@ -234,4 +247,10 @@ interface TelegramAPI {
         @Field("chat_id") chatId: String,
         @Field("text") text: String
     ): Call<Unit>
+}
+
+class AlarmReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context?, intent: Intent?) {
+        print("ksdafjad")
+    }
 }
