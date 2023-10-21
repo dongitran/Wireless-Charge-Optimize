@@ -44,6 +44,8 @@ class ForegroundService : Service() {
     private var cnt = 0
     private val ALARM_INTERVAL = 6000
 
+    private var wakeLock: PowerManager.WakeLock? = null
+
     companion object {
         private const val NOTIFICATION_CHANNEL_ID = "ForegroundServiceChannel"
         private const val NOTIFICATION_ID = 1
@@ -65,7 +67,7 @@ class ForegroundService : Service() {
                 // Check battery
                 val batteryPercentageInit = getBatteryPercentage(applicationContext)
                 if (batteryPercentageInit < (BATTERY_LEVEL_FULL - 1)) {
-                    isCharging = true
+                    isChargedFull = true
                 } else {
                     isChargedFull = true
                 }
@@ -74,44 +76,11 @@ class ForegroundService : Service() {
                 startForeground(NOTIFICATION_ID, notification)
                 isServiceRunning = true
 
-                handler.postDelayed(object : Runnable {
-                    override fun run() {
-                        try {
-                            // Send POST request here
-                            Log.d(TAG, "Sending POST request...")
-                            val batteryPercentageNow = getBatteryPercentage(applicationContext)
-                            print("batteryPercentage: ")
-                            println(batteryPercentageNow)
+                val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+                wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MyForegroundService:WakeLock")
+                wakeLock?.acquire()
 
-                            if (isCharging) {
-                                if (batteryPercentageNow >= BATTERY_LEVEL_FULL) {
-                                    isCharging = false
-                                    isChargedFull = true
-                                }
-                            } else if (isChargedFull) {
-                                if (batteryPercentageNow <= BATTERY_LEVEL_NEED_CHARGE) {
-                                    isCharging = true
-                                    isChargedFull = false
-                                }
-                            }
-
-                            GlobalScope.launch(Dispatchers.IO) {
-                                sendTelegramMessage(cnt, isCharging, batteryPercentageNow)
-                                publishMqttMessage(mqttTopic, cnt, isCharging, batteryPercentageNow)
-                            }
-
-                            cnt++
-                        }
-                        catch(e: Exception) {
-                            e.printStackTrace()
-                            println("Failed to publish MQTT message: ${e.message}")
-                        }
-                        // Schedule the next run after 10 seconds
-                        handler.postDelayed(this, 60000)
-                    }
-                }, 1)
-
-
+                startWork()
             }
         }
         catch(e:Exception){
@@ -126,8 +95,42 @@ class ForegroundService : Service() {
     }
 
     override fun onDestroy() {
+        isServiceRunning = false
+        wakeLock?.release()
         super.onDestroy()
         Log.d(TAG, "Service stopped")
+    }
+
+    private fun startWork() {
+        handler.postDelayed({
+            // Thực hiện công việc của dịch vụ ở đây, ví dụ:
+            println("ForegroundService is running")
+
+            val batteryPercentageNow = getBatteryPercentage(applicationContext)
+            print("batteryPercentage: ")
+            println(batteryPercentageNow)
+
+            if (isCharging) {
+                if (batteryPercentageNow >= BATTERY_LEVEL_FULL) {
+                    isCharging = false
+                    isChargedFull = true
+                }
+            } else if (isChargedFull) {
+                if (batteryPercentageNow <= BATTERY_LEVEL_NEED_CHARGE) {
+                    isCharging = true
+                    isChargedFull = false
+                }
+            }
+
+
+            Thread {
+                sendTelegramMessage(cnt, isCharging, batteryPercentageNow)
+                publishMqttMessage("wirelesscharge/data", cnt, isCharging, batteryPercentageNow)
+            }.start()
+            cnt++
+
+            startWork()
+        }, 10000)
     }
 
     private fun createNotificationChannel() {
