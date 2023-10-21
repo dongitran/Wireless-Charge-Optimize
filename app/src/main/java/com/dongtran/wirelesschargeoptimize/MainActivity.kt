@@ -105,9 +105,6 @@ class MainActivity : ComponentActivity() {
         val serviceIntent = Intent(this, ForegroundService::class.java)
         startService(serviceIntent)
 
-        val serviceIntentx = Intent(this, MyForegroundService::class.java)
-        startService(serviceIntentx)
-
         //// Sử dụng AlarmManager để khởi chạy foreground service sau 5 giây
         //val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
         //val intent = Intent(this, MyForegroundService::class.java)
