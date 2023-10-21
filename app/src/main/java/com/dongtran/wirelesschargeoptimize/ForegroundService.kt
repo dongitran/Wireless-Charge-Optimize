@@ -69,7 +69,7 @@ class ForegroundService : Service() {
                 // Check battery
                 val batteryPercentageInit = getBatteryPercentage(applicationContext)
                 if (batteryPercentageInit < (BATTERY_LEVEL_FULL - 1)) {
-                    isChargedFull = true
+                    isCharging = true
                 } else {
                     isChargedFull = true
                 }
@@ -132,7 +132,7 @@ class ForegroundService : Service() {
             cnt++
 
             startWork()
-        }, 2000)
+        }, 60000)
     }
 
     private fun createNotificationChannel() {
