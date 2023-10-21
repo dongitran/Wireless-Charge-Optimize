@@ -105,15 +105,6 @@ class MainActivity : ComponentActivity() {
         val serviceIntent = Intent(this, ForegroundService::class.java)
         startService(serviceIntent)
 
-        //// Sử dụng AlarmManager để khởi chạy foreground service sau 5 giây
-        //val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        //val intent = Intent(this, MyForegroundService::class.java)
-        //val pendingIntent = PendingIntent.getService(this, 0, intent, PendingIntent.FLAG_MUTABLE)
-//
-        //val delay = 10000L
-        //alarmManager.setExact(AlarmManager.RTC, System.currentTimeMillis() + delay, pendingIntent)
-
-
         // Đăng ký BroadcastReceiver để lắng nghe thông báo nhiệt độ pin và các thông tin khác
         val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
         registerReceiver(batteryReceiver, filter)
@@ -135,22 +126,11 @@ fun ChargingOptimizeScreen(
     batteryVoltage: String,
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val textColor = colorScheme.primary
-    var firstSkip = true;
 
     val lottieView = LottieAnimationView(LocalContext.current).apply {
         setAnimation(R.raw.charging_animation)
         repeatCount = LottieDrawable.INFINITE
         playAnimation()
-    }
-
-    LaunchedEffect(chargingStatus) {
-        println("LaunchedEffect")
-        println(chargingStatus)
-        val isCharging = chargingStatus == "Charging"
-        println(isCharging)
-        //lottieView.playAnimation()
-
     }
 
     Column(

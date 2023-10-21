@@ -27,7 +27,6 @@
             android:name=".ForegroundService"
             android:exported="false"
             />
-        <service android:name=".MyForegroundService" />
     </application>
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />

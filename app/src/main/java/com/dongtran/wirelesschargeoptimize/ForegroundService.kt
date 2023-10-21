@@ -16,6 +16,8 @@ import android.app.PendingIntent
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
+import java.util.UUID
+
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -130,7 +132,7 @@ class ForegroundService : Service() {
             cnt++
 
             startWork()
-        }, 10000)
+        }, 2000)
     }
 
     private fun createNotificationChannel() {
@@ -168,7 +170,7 @@ class ForegroundService : Service() {
         val message = "$isCharging"
         try {
             // Customize the following values based on your settings
-            val clientId = "phone_device"
+            val clientId = "phone_device_${UUID.randomUUID()}"
             val brokerUri = "ssl://o126710c.ala.us-east-1.emqxsl.com:8883"
 
             mqttClient = MqttClient(brokerUri, clientId, MemoryPersistence())
