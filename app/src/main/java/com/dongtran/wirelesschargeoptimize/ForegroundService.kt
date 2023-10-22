@@ -45,6 +45,8 @@ class ForegroundService : Service() {
     private var isServiceRunning = false
     private var cnt = 0
     private val ALARM_INTERVAL = 6000
+    private var waitingTemperatureDecrease = false
+    private var timeStartWaitingTemperatureDecrease:Long = 0
 
     private var wakeLock: PowerManager.WakeLock? = null
 
@@ -112,6 +114,10 @@ class ForegroundService : Service() {
             print("batteryPercentage: ")
             println(batteryPercentageNow)
 
+            val batteryTemperature = getBatteryTemperature(applicationContext)
+            println("batteryTemperature: $batteryTemperature")
+
+
             if (isCharging) {
                 if (batteryPercentageNow >= BATTERY_LEVEL_FULL) {
                     isCharging = false
@@ -124,10 +130,18 @@ class ForegroundService : Service() {
                 }
             }
 
+            if(isCharging && batteryTemperature >= 39 && !waitingTemperatureDecrease){
+                waitingTemperatureDecrease = true;
+                timeStartWaitingTemperatureDecrease = System.currentTimeMillis()
+            }
+            if(waitingTemperatureDecrease && batteryTemperature <= 32){
+                waitingTemperatureDecrease = false;
+            }
+
 
             Thread {
-                sendTelegramMessage(cnt, isCharging, batteryPercentageNow)
-                publishMqttMessage("wirelesscharge/data", cnt, isCharging, batteryPercentageNow)
+                sendTelegramMessage(cnt, isCharging, batteryPercentageNow, waitingTemperatureDecrease)
+                publishMqttMessage("wirelesscharge/data", cnt, isCharging, batteryPercentageNow, waitingTemperatureDecrease)
             }.start()
             cnt++
 
@@ -164,9 +178,9 @@ class ForegroundService : Service() {
             .build()
     }
 
-    private fun publishMqttMessage(topic: String, cnt: Int, charging: Boolean, batteryPercentageNow: Int) {
+    private fun publishMqttMessage(topic: String, cnt: Int, charging: Boolean, batteryPercentageNow: Int, waitingTemperatureDecrease: Boolean) {
         var isCharging = '0'
-        if(charging) isCharging = '1';
+        if(charging && !waitingTemperatureDecrease) isCharging = '1';
         val message = "$isCharging"
         try {
             // Customize the following values based on your settings
@@ -199,11 +213,11 @@ class ForegroundService : Service() {
         }
     }
 
-    private fun sendTelegramMessage(cnt: Int, charging: Boolean, batteryPercentageNow: Int) {
+    private fun sendTelegramMessage(cnt: Int, charging: Boolean, batteryPercentageNow: Int, waitingTemperatureDecrease: Boolean) {
         try {
             val token = "5868771943:AAFy3Yzhq5sW8BpsF9WxuGPMg-hFEvQkOA8" // Replace YOUR_BOT_TOKEN with your bot's token
             val chatId = "-4051901987" // Replace YOUR_CHAT_ID with the recipient's chat ID
-            val message = "Charge optimize - $cnt - $charging - $batteryPercentageNow" // Your message content
+            val message = "Charge optimize - $cnt - $charging - $batteryPercentageNow - $waitingTemperatureDecrease" // Your message content
 
             val retrofit = Retrofit.Builder()
                 .baseUrl("https://api.telegram.org/bot$token/")
@@ -240,6 +254,22 @@ class ForegroundService : Service() {
         catch(e: Exception){
             e.printStackTrace()
             println("Failed to get battery percentage: ${e.message}")
+            return 0;
+        }
+    }
+
+    private fun getBatteryTemperature(context: Context): Int {
+        try{
+            val batteryStatus: Intent? = IntentFilter(Intent.ACTION_BATTERY_CHANGED).let { ifilter ->
+                context.registerReceiver(null, ifilter)
+            }
+            val temperature: Int = batteryStatus?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1) ?: -1
+
+            return (temperature/10)
+        }
+        catch(e: Exception){
+            e.printStackTrace()
+            println("Failed to get battery temperature: ${e.message}")
             return 0;
         }
     }
