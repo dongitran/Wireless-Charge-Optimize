@@ -44,6 +44,11 @@ class ForegroundService : Service() {
 
     private var wakeLock: PowerManager.WakeLock? = null
 
+    private var waitingCheckEsp32ChargingCnt = 0
+    private var retryCheckEsp32ChargingCnt = 0
+    private var isChargingControlBefore = false
+    private var checkChargingSuccessful = false
+
     companion object {
         private const val NOTIFICATION_CHANNEL_ID = "ForegroundServiceChannel"
         private const val NOTIFICATION_ID = 1
@@ -162,15 +167,54 @@ class ForegroundService : Service() {
                 waitingTemperatureDecrease = false;
             }
 
+            // Check if device has over temperature -> disable charge
+            var isChargingControl = false
+            if(isCharging && !waitingTemperatureDecrease) isChargingControl = true;
+            if(isChargingControlBefore != isChargingControl){
+                isChargingControlBefore = isChargingControl
+                if(isChargingControl){
+                    checkChargingSuccessful = true
+
+                    waitingCheckEsp32ChargingCnt = 0
+                    retryCheckEsp32ChargingCnt = 0
+                }
+                else{
+                    checkChargingSuccessful = false
+                }
+            }
+
+            if(checkChargingSuccessful){
+                val status = getBatteryStatus(applicationContext)
+                if (status == BatteryManager.BATTERY_STATUS_DISCHARGING) {
+                    if (retryCheckEsp32ChargingCnt < 2) {
+                        if (waitingCheckEsp32ChargingCnt > 2) {
+                            isChargingControl = false
+                            waitingCheckEsp32ChargingCnt = 0
+                            retryCheckEsp32ChargingCnt++
+                        } else {
+                            waitingCheckEsp32ChargingCnt++
+                        }
+                    }
+                    else{
+                        checkChargingSuccessful = false
+                    }
+                } else {
+                    checkChargingSuccessful = false
+                }
+            }
+
+            println("waitingCheckEsp32ChargingCnt $waitingCheckEsp32ChargingCnt")
+            println("retryCheckEsp32ChartingCnt $retryCheckEsp32ChargingCnt")
+            println("checkChargingSuccessful $checkChargingSuccessful")
 
             Thread {
-                sendTelegramMessage(cnt, isCharging, batteryPercentageNow, waitingTemperatureDecrease)
-                publishMqttMessage("wirelesscharge/data", cnt, isCharging, batteryPercentageNow, waitingTemperatureDecrease)
+                sendTelegramMessage(cnt, isCharging, batteryPercentageNow, waitingTemperatureDecrease, isChargingControl)
+                publishMqttMessage("wirelesscharge/data", cnt, isChargingControl, batteryPercentageNow)
             }.start()
             cnt++
 
             startWork()
-        }, 300000)
+        }, 60000)
     }
 
     private fun createNotificationChannel() {
@@ -202,10 +246,12 @@ class ForegroundService : Service() {
             .build()
     }
 
-    private fun publishMqttMessage(topic: String, cnt: Int, charging: Boolean, batteryPercentageNow: Int, waitingTemperatureDecrease: Boolean) {
-        var isCharging = '0'
-        if(charging && !waitingTemperatureDecrease) isCharging = '1';
-        val message = "$isCharging"
+    private fun publishMqttMessage(topic: String, cnt: Int, charging: Boolean, batteryPercentageNow: Int) {
+        var isChargingControl = '0'
+        if(charging){
+            isChargingControl = '1'
+        }
+        val message = "$isChargingControl"
         try {
             // Customize the following values based on your settings
             val clientId = "phone_device_${UUID.randomUUID()}"
@@ -237,11 +283,11 @@ class ForegroundService : Service() {
         }
     }
 
-    private fun sendTelegramMessage(cnt: Int, charging: Boolean, batteryPercentageNow: Int, waitingTemperatureDecrease: Boolean) {
+    private fun sendTelegramMessage(cnt: Int, charging: Boolean, batteryPercentageNow: Int, waitingTemperatureDecrease: Boolean, isChargingControl: Boolean) {
         try {
             val token = "5868771943:AAFy3Yzhq5sW8BpsF9WxuGPMg-hFEvQkOA8" // Replace YOUR_BOT_TOKEN with your bot's token
             val chatId = "-4051901987" // Replace YOUR_CHAT_ID with the recipient's chat ID
-            val message = "Charge optimize - $cnt - $charging - $batteryPercentageNow - $waitingTemperatureDecrease" // Your message content
+            val message = "Charge optimize - $cnt - $charging - $batteryPercentageNow - $waitingTemperatureDecrease -> $isChargingControl" // Your message content
 
             val retrofit = Retrofit.Builder()
                 .baseUrl("https://api.telegram.org/bot$token/")
@@ -294,6 +340,22 @@ class ForegroundService : Service() {
         catch(e: Exception){
             e.printStackTrace()
             println("Failed to get battery temperature: ${e.message}")
+            return 0;
+        }
+    }
+
+    private fun getBatteryStatus(context: Context): Int? {
+        try{
+            val batteryStatus: Intent? = IntentFilter(Intent.ACTION_BATTERY_CHANGED).let { ifilter ->
+                context.registerReceiver(null, ifilter)
+            }
+            val status: Int? = batteryStatus?.getIntExtra(BatteryManager.EXTRA_STATUS, 0)
+
+            return status
+        }
+        catch(e: Exception){
+            e.printStackTrace()
+            println("Failed to get battery status: ${e.message}")
             return 0;
         }
     }
