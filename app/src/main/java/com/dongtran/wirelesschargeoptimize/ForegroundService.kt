@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.SharedPreferences
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
@@ -61,12 +62,29 @@ class ForegroundService : Service() {
             if (!isServiceRunning) {
                 val notification = createNotification()
 
-                // Check battery
-                val batteryPercentageInit = getBatteryPercentage(applicationContext)
-                if (batteryPercentageInit < (BATTERY_LEVEL_FULL - 1)) {
-                    isCharging = true
-                } else {
-                    isChargedFull = true
+                val sharedPreferences: SharedPreferences = applicationContext.getSharedPreferences("myPrefs", Context.MODE_PRIVATE)
+                val isChargingContain = sharedPreferences.contains("isCharging")
+                val isChargedFullContain = sharedPreferences.contains("isChargedFull")
+                val isChargingValue: Boolean = sharedPreferences.getBoolean("isCharging", false)
+                val isChargedFullValue: Boolean = sharedPreferences.getBoolean("isChargedFull", false)
+                if(isChargingContain && isChargedFullContain && isChargingValue != isChargedFullValue){
+                    isCharging = isChargingValue
+                    isChargedFull = isChargedFullValue
+                }
+                else{
+                    // Check battery
+                    val batteryPercentageInit = getBatteryPercentage(applicationContext)
+                    if (batteryPercentageInit < (BATTERY_LEVEL_FULL - 1)) {
+                        isCharging = true
+                    } else {
+                        isChargedFull = true
+                    }
+
+                    // Save data to shared preferences
+                    val editor: SharedPreferences.Editor = sharedPreferences.edit()
+                    editor.putBoolean("isCharging", isCharging)
+                    editor.putBoolean("isChargedFull", isChargedFull)
+                    editor.apply()
                 }
 
                 // Start the Foreground service with a notification
@@ -111,16 +129,29 @@ class ForegroundService : Service() {
             println("batteryTemperature: $batteryTemperature")
 
 
+            var isUpdateCharging = false
             if (isCharging) {
                 if (batteryPercentageNow >= BATTERY_LEVEL_FULL) {
                     isCharging = false
                     isChargedFull = true
+                    isUpdateCharging = true
                 }
             } else if (isChargedFull) {
                 if (batteryPercentageNow <= BATTERY_LEVEL_NEED_CHARGE) {
                     isCharging = true
                     isChargedFull = false
+                    isUpdateCharging = true
                 }
+            }
+
+            // Check is update charging to update to shared preferences
+            if(isUpdateCharging){
+                val sharedPreferences: SharedPreferences = applicationContext.getSharedPreferences("myPrefs", Context.MODE_PRIVATE)
+                // Save data to shared preferences
+                val editor: SharedPreferences.Editor = sharedPreferences.edit()
+                editor.putBoolean("isCharging", isCharging)
+                editor.putBoolean("isChargedFull", isChargedFull)
+                editor.apply()
             }
 
             if(isCharging && batteryTemperature >= 39 && !waitingTemperatureDecrease){
