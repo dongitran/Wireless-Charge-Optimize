@@ -1,6 +1,7 @@
 package com.dongtran.wirelesschargeoptimize
 
 import android.app.*
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -10,17 +11,9 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
-import android.content.BroadcastReceiver
-import android.app.AlarmManager
-import android.app.PendingIntent
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
-import java.util.UUID
-
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
 import org.eclipse.paho.client.mqttv3.MqttClient
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions
 import org.eclipse.paho.client.mqttv3.MqttMessage
@@ -146,7 +139,7 @@ class ForegroundService : Service() {
             cnt++
 
             startWork()
-        }, 60000)
+        }, 300000)
     }
 
     private fun createNotificationChannel() {
