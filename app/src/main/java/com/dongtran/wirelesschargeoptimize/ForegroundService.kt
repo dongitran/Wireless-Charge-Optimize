@@ -1,6 +1,7 @@
 package com.dongtran.wirelesschargeoptimize
 
 import android.app.*
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -10,17 +11,9 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
-import android.content.BroadcastReceiver
-import android.app.AlarmManager
-import android.app.PendingIntent
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
-import java.util.UUID
-
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
 import org.eclipse.paho.client.mqttv3.MqttClient
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions
 import org.eclipse.paho.client.mqttv3.MqttMessage
@@ -31,6 +24,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Field
 import retrofit2.http.FormUrlEncoded
 import retrofit2.http.POST
+import java.time.LocalTime
 import java.util.*
 
 class ForegroundService : Service() {
@@ -71,7 +65,15 @@ class ForegroundService : Service() {
                 // Check battery
                 val batteryPercentageInit = getBatteryPercentage(applicationContext)
                 if (batteryPercentageInit < (BATTERY_LEVEL_FULL - 1)) {
-                    isCharging = true
+                    val currentTime = LocalTime.now()
+                    val currentHour = currentTime.hour
+                    println("currentHour $currentHour")
+                    if(currentHour < 13 && batteryPercentageInit >= 29){
+                        isChargedFull = true;
+                    }
+                    else{
+                        isCharging = true
+                    }
                 } else {
                     isChargedFull = true
                 }
