@@ -62,8 +62,6 @@ class MainActivity : ComponentActivity() {
                 }
                 val batteryLevel = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, 0)
                 val batteryVoltage = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0)
-                val batteryCycleCount = intent.getIntExtra("android.os.extra.BATTERY_CYCLE_COUNT", 0)
-                val chargingCurrent = intent.getIntExtra(BatteryManager.EXTRA_HEALTH, 0)
 
                 batteryTemperature = temperature
                 batteryStatus = chargingStatus

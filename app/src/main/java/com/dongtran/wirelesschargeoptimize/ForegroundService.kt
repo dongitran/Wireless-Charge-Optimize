@@ -38,7 +38,6 @@ class ForegroundService : Service() {
     private val mqttTopic = "wirelesscharge/data"
     private var isServiceRunning = false
     private var cnt = 0
-    private val ALARM_INTERVAL = 6000
     private var waitingTemperatureDecrease = false
     private var timeStartWaitingTemperatureDecrease:Long = 0
 
@@ -75,6 +74,11 @@ class ForegroundService : Service() {
                 if(isChargingContain && isChargedFullContain && isChargingValue != isChargedFullValue){
                     isCharging = isChargingValue
                     isChargedFull = isChargedFullValue
+
+                    val editor: SharedPreferences.Editor = sharedPreferences.edit()
+                    editor.putBoolean("isCharging", false)
+                    editor.putBoolean("isChargedFull", true)
+                    editor.apply()
                 }
                 else{
                     // Check battery
@@ -209,7 +213,7 @@ class ForegroundService : Service() {
 
             Thread {
                 sendTelegramMessage(cnt, isCharging, batteryPercentageNow, waitingTemperatureDecrease, isChargingControl)
-                publishMqttMessage("wirelesscharge/data", cnt, isChargingControl, batteryPercentageNow)
+                publishMqttMessage(mqttTopic, cnt, isChargingControl, batteryPercentageNow)
             }.start()
             cnt++
 
@@ -266,7 +270,6 @@ class ForegroundService : Service() {
             mqttClient.connect(connectOptions)
 
             // Publish data
-            val topic = "wirelesscharge/data" // Set the topic you want to publish to
             val message = MqttMessage(message.toByteArray())
             mqttClient.publish(topic, message)
 
