@@ -207,10 +207,6 @@ class ForegroundService : Service() {
                 }
             }
 
-            println("waitingCheckEsp32ChargingCnt $waitingCheckEsp32ChargingCnt")
-            println("retryCheckEsp32ChartingCnt $retryCheckEsp32ChargingCnt")
-            println("checkChargingSuccessful $checkChargingSuccessful")
-
             Thread {
                 sendTelegramMessage(cnt, isCharging, batteryPercentageNow, waitingTemperatureDecrease, isChargingControl)
                 publishMqttMessage(mqttTopic, cnt, isChargingControl, batteryPercentageNow)
